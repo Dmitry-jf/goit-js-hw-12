@@ -12,6 +12,14 @@ export const lightbox = new SimpleLightbox(".gallery a", {
   captionDelay: 150,
 });
 
+export function refreshLightbox() {
+  try {
+    lightbox.refresh();
+  } catch (err) {
+    console.warn("Lightbox refresh failed:", err);
+  }
+}
+
 export function createGallery(images) {
  return images
      .map(
