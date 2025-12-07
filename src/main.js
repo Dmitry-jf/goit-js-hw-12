@@ -1,4 +1,4 @@
-
+// main.js
 import iziToast from "izitoast";
 import "izitoast/dist/css/iziToast.min.css";
 
@@ -8,102 +8,102 @@ import {
   clearGallery,
   showLoader,
   hideLoader,
-  hideLoadMoreButton,
   showLoadMoreButton,
-  gallery,
-  lightbox,
+  hideLoadMoreButton,
+  getFirstCardHeight,
 } from "./js/render-functions.js";
 
+const form = document.querySelector(".form");
+const loadMoreBtn = document.querySelector(".loader-btn");
 
-const refs = {
-  form: document.querySelector('.form'),
-   loadMoreBtn: document.querySelector(".loader-btn"),
-};
-
-
-
-const Page_Size = 15;
-let query;
-let currentPage;
-let totalPages;
+const PER_PAGE = 15;
+let query = "";
+let page = 1;
+let totalPages = 0;
 
 hideLoadMoreButton();
 
-refs.form.addEventListener('submit', async e => {
-    e.preventDefault();
+form.addEventListener("submit", async e => {
+  e.preventDefault();
 
-    const formData = new FormData(e.target);
-    query = formData.get("search-text").trim();
-    currentPage = 1;
+  query = e.target.elements["search-text"].value.trim();
 
+  if (!query) {
+    iziToast.warning({
+      message: "Please enter a search query.",
+      position: "topRight",
+    });
+    return;
+  }
 
-    clearGallery();
-    hideLoadMoreButton();
-    showLoader();
+  page = 1;
+  clearGallery();
+  hideLoadMoreButton();
+  showLoader();
 
-    try {
-        const data = await getImagesByQuery(query, currentPage)
-        hideLoader();
+  try {
+    const data = await getImagesByQuery(query, page);
 
-
-
-        if (data.hits.length === 0) {
-            iziToast.error({
-                title: "",
-                message: "Sorry, there are no images matching your search query. Please try again!",
-                position: "topRight",
-            });
-            return
-        }
-
-        const markup = createGallery(data.hits);
-        gallery.innerHTML = markup;
-        lightbox.refresh()
- 
-      totalPages = Math.ceil(data.totalHits / Page_Size);
-
-    
-        if (currentPage < totalPages) {
-            showLoadMoreButton();
-        }
-    }
-    catch {(err)
-        console.error(err);
-        hideLoader();
+    if (data.hits.length === 0) {
+      iziToast.error({
+        message: "Sorry, there are no images matching your search query.",
+        position: "topRight",
+      });
+      return;
     }
 
-    e.target.reset();
-});
+    createGallery(data.hits);
+    totalPages = Math.ceil(data.totalHits / PER_PAGE);
 
-
-
-refs.loadMoreBtn.addEventListener("click", async () => {
-    currentPage += 1;
-
-    showLoader();
-    hideLoadMoreButton();
-
-
- try {
-    const data = await getImagesByQuery(query, currentPage);
-     hideLoader();
-     
-    const markup = createGallery(data.hits);
-    gallery.insertAdjacentHTML("beforeend", markup)
-    lightbox.refresh();
-
-    if (currentPage >= totalPages) {
-        hideLoadMoreButton();
-        iziToast.info({
-        title: "",
+    if (page >= totalPages) {
+      iziToast.info({
         message: "We're sorry, but you've reached the end of search results.",
         position: "topRight",
       });
     } else {
       showLoadMoreButton();
     }
-  } catch (err) {
-    console.error(err);
+  } catch {
+    iziToast.error({
+      message: "Something went wrong. Please try again later.",
+      position: "topRight",
+    });
+  } finally {
+    hideLoader();
+  }
+
+  form.reset();
+});
+
+loadMoreBtn.addEventListener("click", async () => {
+  page += 1;
+  showLoader();
+  hideLoadMoreButton();
+
+  try {
+    const data = await getImagesByQuery(query, page);
+    createGallery(data.hits, { append: true });
+
+    const cardHeight = getFirstCardHeight();
+    window.scrollBy({
+      top: cardHeight * 2,
+      behavior: "smooth",
+    });
+
+    if (page >= totalPages) {
+      iziToast.info({
+        message: "We're sorry, but you've reached the end of search results.",
+        position: "topRight",
+      });
+    } else {
+      showLoadMoreButton();
+    }
+  } catch {
+    iziToast.error({
+      message: "Error loading more images.",
+      position: "topRight",
+    });
+  } finally {
     hideLoader();
   }
 });
